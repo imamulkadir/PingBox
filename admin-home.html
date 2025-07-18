@@ -25,6 +25,18 @@
         border: none;
       }
       .btn-logout {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        background: #b33a3a;
+        border: none;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 1000;
+      }
+      .btn-logout {
         background-color: #ff4d4d;
       }
       .btn-clear {
@@ -40,8 +52,8 @@
     </style>
   </head>
   <body>
-    <h1>⚙️ Welcome Admin, <span id="email"></span>!</h1>
     <button class="btn btn-logout" id="logoutBtn">Logout</button>
+    <h1>⚙️ Welcome Admin, <span id="email"></span>!</h1>
 
     <div class="notifications-container mt-4" style="max-width: 600px">
       <h3>Notifications from Users</h3>
