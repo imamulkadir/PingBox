@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin Home</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #121212;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 20px;
+      }
+      .btn-logout,
+      .btn-clear {
+        margin-top: 20px;
+        border: none;
+      }
+      .btn-logout {
+        background-color: #ff4d4d;
+      }
+      .btn-clear {
+        background-color: #555;
+        color: white;
+      }
+      .btn-logout:hover {
+        background-color: #e63946;
+      }
+      .btn-clear:hover {
+        background-color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>⚙️ Welcome Admin, <span id="email"></span>!</h1>
+    <button class="btn btn-logout" id="logoutBtn">Logout</button>
+
+    <div class="notifications-container mt-4" style="max-width: 600px">
+      <h3>Notifications from Users</h3>
+      <ul
+        id="notificationsList"
+        class="list-group bg-dark text-light p-3"
+        style="max-height: 250px; overflow-y: auto"
+      ></ul>
+      <button id="clearNotificationsBtn" class="btn btn-clear w-100">
+        Clear All Notifications
+      </button>
+      <div id="clearStatus" class="mt-2"></div>
+    </div>
+
+    <audio id="notifSound" src="./notification.mp3" preload="auto"></audio>
+
+    <!-- Firebase SDK as ES Module -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        onChildAdded,
+        get,
+        remove,
+      } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCn0D2cNZ3Bj6VQ-HhgkIG8e9JqHdFazOc",
+        authDomain: "hub-notification-23fcd.firebaseapp.com",
+        databaseURL:
+          "https://hub-notification-23fcd-default-rtdb.firebaseio.com",
+        projectId: "hub-notification-23fcd",
+        storageBucket: "hub-notification-23fcd.appspot.com",
+        messagingSenderId: "26978381423",
+        appId: "1:26978381423:web:65be790b70afdda690679a",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      const notificationsList = document.getElementById("notificationsList");
+      const notifSound = document.getElementById("notifSound");
+      const emailSpan = document.getElementById("email");
+
+      const userEmail =
+        localStorage.getItem("userEmail") ||
+        sessionStorage.getItem("userEmail");
+      const userRole =
+        localStorage.getItem("userRole") || sessionStorage.getItem("userRole");
+      const isLoggedIn =
+        localStorage.getItem("isLoggedIn") === "true" ||
+        sessionStorage.getItem("isLoggedIn") === "true";
+
+      if (
+        !isLoggedIn ||
+        !userEmail ||
+        !(userRole === "admin" || userRole === "superadmin")
+      ) {
+        window.location.href = "index.html";
+      } else {
+        emailSpan.textContent = userEmail;
+      }
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "index.html";
+      });
+
+      // Enable sound playback after user interaction
+      let soundEnabled = false;
+      const enableSound = () => {
+        soundEnabled = true;
+        notifSound.play().catch(() => {});
+        document.removeEventListener("click", enableSound);
+        document.removeEventListener("keydown", enableSound);
+      };
+      document.addEventListener("click", enableSound);
+      document.addEventListener("keydown", enableSound);
+
+      // Function to render notification
+      function addNotificationToUI(note) {
+        const li = document.createElement("li");
+        li.className = "list-group-item bg-dark text-light";
+        const date = new Date(note.timestamp);
+        li.innerHTML = `
+        <strong>From:</strong> ${note.from}<br/>
+        <strong>Message:</strong> ${note.message}<br/>
+        <small class="text-muted">${date.toLocaleString()}</small>
+      `;
+        notificationsList.prepend(li);
+      }
+
+      // Load all existing notifications once
+      get(ref(db, "notifications")).then((snapshot) => {
+        const data = snapshot.val();
+        notificationsList.innerHTML = "";
+        if (!data) {
+          notificationsList.innerHTML = `<li class="list-group-item bg-secondary text-center">No notifications yet.</li>`;
+        } else {
+          Object.values(data).forEach(addNotificationToUI);
+        }
+      });
+
+      // Listen for new notifications and play sound
+      onChildAdded(ref(db, "notifications"), (snapshot) => {
+        const note = snapshot.val();
+        addNotificationToUI(note);
+        if (soundEnabled) {
+          notifSound
+            .play()
+            .catch((err) => console.warn("🔇 Sound failed:", err));
+        }
+        if (Notification.permission === "granted") {
+          new Notification(`New message from ${note.from}`, {
+            body: note.message,
+          });
+        }
+      });
+
+      // Clear All Notifications
+      document
+        .getElementById("clearNotificationsBtn")
+        .addEventListener("click", () => {
+          if (confirm("Are you sure you want to delete ALL notifications?")) {
+            remove(ref(db, "notifications"))
+              .then(() => {
+                notificationsList.innerHTML = `<li class="list-group-item bg-secondary text-center">No notifications yet.</li>`;
+                document.getElementById("clearStatus").textContent =
+                  "✅ Notifications cleared.";
+              })
+              .catch((err) => {
+                document.getElementById("clearStatus").textContent =
+                  "❌ Error clearing notifications.";
+                console.error(err);
+              });
+          }
+        });
+
+      // Ask for notification permission once
+      if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            console.log("🔔 Browser notifications enabled.");
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
