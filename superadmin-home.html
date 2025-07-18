@@ -223,9 +223,12 @@
 
         try {
           if (uid) {
+            // Update user info
             await set(ref(db, `users/${uid}`), { email, password, role });
+            await set(ref(db, `roles/${uid}`), role); // Ensure role is also updated
             statusDiv.textContent = `✅ User updated.`;
           } else {
+            // Create new user
             const userCred = await createUserWithEmailAndPassword(
               auth,
               email,
@@ -233,6 +236,7 @@
             );
             const newUID = userCred.user.uid;
             await set(ref(db, `users/${newUID}`), { email, password, role });
+            await set(ref(db, `roles/${newUID}`), role); // Add role under roles node
             statusDiv.textContent = `✅ User '${email}' added as '${role}'.`;
           }
 
